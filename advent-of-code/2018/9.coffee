@@ -1,4 +1,4 @@
-{chain, pluck} = require 'sweet-coffee'
+{chain, get} = require 'sweet-coffee'
 Arr = require 'sweet-coffee/arr'
 Fs = require 'sweet-coffee/fs'
 Map = require 'sweet-coffee/map'

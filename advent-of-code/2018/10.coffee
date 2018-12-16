@@ -1,4 +1,4 @@
-{chain, pluck} = require 'sweet-coffee'
+{chain, get} = require 'sweet-coffee'
 Arr = require 'sweet-coffee/arr'
 Fs = require 'sweet-coffee/fs'
 Map = require 'sweet-coffee/map'
@@ -81,5 +81,5 @@ for i in [0..100000]
             console.log x.join ''
 
 chain sizes,
-    Arr.minBy pluck 1
+    Arr.minBy get 1
     console.log

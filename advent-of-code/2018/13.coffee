@@ -47,6 +47,10 @@ data = chain '13.txt',
     Arr.map (line, y)->
         s = []
         for v, x in line
+            switch v
+                when 'v'
+            then new Cart
+            switch v
             if v == 'v'
                 carts.push new Cart x, y, DOWN
 
