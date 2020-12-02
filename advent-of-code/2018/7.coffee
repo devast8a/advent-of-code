@@ -1,4 +1,4 @@
-{chain, pluck} = require 'sweet-coffee'
+{chain, get} = require 'sweet-coffee'
 Arr = require 'sweet-coffee/arr'
 Fs = require 'sweet-coffee/fs'
 Map = require 'sweet-coffee/map'
@@ -13,16 +13,18 @@ graph = chain '7.txt',
     Str.trim
     Str.split '\n'
 
-    Arr.map Regex.exec /Step (\w+) must be finished before step (\w+) can begin\./
-    Arr.map ([_, from, to])->[from, to]
+    Arr.map compose [
+        Regex.exec /Step (\w+) must be finished before step (\w+) can begin\./
+        ([_, from, to])->[from, to]
+    ]
     DirectedGraph.create.fromEdges
 
 # Part 1
 chain graph,
-    DirectedGraph.topologicalSortBy Arr.minBy pluck 'id'
-    pluck 'ordering'
+    DirectedGraph.topologicalSortBy Arr.minBy get 'id'
+    get 'ordering'
 
-    Arr.map pluck 'id'
+    Arr.map get 'id'
     Str.join ""
     console.log
 
@@ -35,14 +37,11 @@ chain graph.nodes,
     
 chain graph,
     DirectedGraph.topologicalSortBy (ready)->
-        ready = Arr.sortABy pluck('id'), ready
-        ready = Arr.take 5, ready
-
         ready = chain ready,
-            Arr.sortABy pluck 'id'
+            Arr.sortABy get 'id'
             Arr.take 5
 
-        {value} = Arr.minBy pluck('value'), ready
+        {value} = Arr.minBy get('value'), ready
         seconds += value
 
         return chain ready,

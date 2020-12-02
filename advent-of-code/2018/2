@@ -1,0 +1,492 @@
+{_, chain, compose, curry, get} = require 'sweet-coffee'
+
+Arr = require 'sweet-coffee/arr'
+Fs = require 'sweet-coffee/fs'
+Map = require 'sweet-coffee/map'
+Num = require 'sweet-coffee/num'
+Op = require 'sweet-coffee/op'
+Regex = require 'sweet-coffee/regex'
+Str = require 'sweet-coffee/str'
+
+# Containers
+DirectedGraph = require 'sweet-coffee/container/directed-graph'
+Deque = require 'sweet-coffee/container/deque'
+Set = require 'sweet-coffee/container/set'
+
+registerNames = ['a', 'b', 'c', 'd', 'e', 'f']
+registerCount = 6
+
+COMPARE = 0x01
+CONTROL = 0x02
+
+ops = []
+
+# Arithmetic instructions
+binaryOperations = [
+    ['add', '+', Op.add]
+    ['mul', '*', Op.mul]
+    ['ban', '&', Op.andB]
+    ['bor', '|', Op.orB]
+]
+
+for [name, op, fn] in binaryOperations
+    do (op, fn)->
+        ops.push
+            name: "#{name}r"
+            flags: 0
+            inRegisters: [0, 1]
+            compile: (a, b)-> "#{a} #{op} #{b}"
+            interpret: (state, a, b, c)-> state[c] = fn state[a], state[b]
+
+        ops.push
+            name: "#{name}i"
+            flags: 0
+            inRegisters: [0]
+            compile: (a, b)-> "#{a} #{op} #{b}"
+            interpret: (state, a, b, c)-> state[c] = fn state[a], b
+
+# Set instructions
+ops.push
+    name: "setr"
+    flags: 0
+    inRegisters: [0]
+    compile: (a, b)-> "#{a}"
+    interpret: (state, a, b, c)-> state[c] = state[a]
+
+ops.push
+    name: "seti"
+    flags: 0
+    inRegisters: []
+    compile: (a, b)-> "#{a}"
+    interpret: (state, a, b, c)-> state[c] = a
+
+# Comparison instructions
+comparisonOperations = [
+    ['gt', '>',  Op.gt]
+    ['eq', '==', Op.eq]
+]
+
+for [name, op, fn] in comparisonOperations
+    do (op, fn)->
+        ops.push
+            name: "#{name}ri"
+            flags: COMPARE
+            inRegisters: [0]
+            compile: (a, b)-> "#{a} #{op} #{b}"
+            interpret: (state, a, b, c)-> state[c] = if fn(b, state[a]) then 1 else 0
+
+        ops.push
+            name: "#{name}ir"
+            flags: COMPARE
+            inRegisters: [1]
+            compile: (a, b)-> "#{a} #{op} #{b}"
+            interpret: (state, a, b, c)-> state[c] = if fn(state[b], a) then 1 else 0
+
+        ops.push
+            name: "#{name}rr"
+            flags: COMPARE
+            inRegisters: [0, 1]
+            compile: (a, b)-> "#{a} #{op} #{b}"
+            interpret: (state, a, b, c)-> state[c] = if fn(state[b], state[a]) then 1 else 0
+
+# Additional instructions (We use them to help JIT the program)
+JUMP = {
+    name: 'jump'
+    flags: CONTROL
+    inRegisters: []
+    compile: -> throw new Error "Can not compile jump instructions"
+}
+ops.push JUMP
+
+BRANCH = {
+    name: 'branch'
+    flags: CONTROL
+    inRegisters: []
+    compile: -> throw new Error "Can not compile branch instructions"
+}
+ops.push BRANCH
+
+LOOP = {
+    name: 'loop'
+    flags: CONTROL
+    inRegisters: []
+    compile: -> throw new Error "Can not compile loop instructions"
+}
+ops.push LOOP
+
+NOP = {
+    name: 'nop'
+    flags: 0
+    inRegisters: []
+    compile: -> throw new Error "Can not compile nop instructions"
+}
+ops.push NOP
+
+names = Arr.map get('name'), ops
+
+# Parse input
+[ip, program...] = chain '19.txt',
+    Fs.readFile
+    Str.trim
+    Str.split '\n'
+
+    Arr.map (instruction, offset)->
+        [name, args...] = instruction.split ' '
+        return {
+            offset: offset - 1
+            op: ops[names.indexOf name]
+            args: args.map Num.parseDec
+        }
+
+printProgram = (program)->
+    for {offset, op, args} in program
+        console.log "    ##{offset}: #{op.name} #{args.join(" ")}"
+
+dependsOn = ({op, args}, registers)->
+    for parameter in op.inRegisters
+        if registers.indexOf(args[parameter]) < 0
+            return false
+    return true
+
+# Compile a given instruction into javascript
+compile = (instruction, ip)->
+    args = instruction.args.slice 0
+    for register in instruction.op.inRegisters
+        if args[register] == ip
+            args[register] = instruction.offset
+        else
+            args[register] = registerNames[args[register]]
+
+
+    dst = registerNames[args[2]]
+    code = instruction.op.compile args[0], args[1]
+
+    return "#{dst} = #{code};"
+
+# Find instructions writing to instruction pointer
+ip = ip.args[0]
+
+writesToIp = program.filter ({args})->args[2] == ip
+
+# Any direct jumps are okay
+for instruction in writesToIp
+    if (not instruction.op.compare) and dependsOn instruction, [ip]
+        state = Arr.filled registerCount, 0
+        state[ip] = instruction.offset
+        instruction.op.interpret state, instruction.args...
+
+        instruction.op = JUMP
+        instruction.args = [state[ip] + 1]
+
+# Compare/jump elimination
+for compare, offset in program
+    unless (compare.op.flags & COMPARE) > 0
+        continue
+
+    temp = compare.args[2]
+
+    jump = program[offset + 1]
+    a = program[offset + 2]
+    b = program[offset + 3]
+
+    unless jump and jump.op.name == 'addr' and jump.args[2] == ip
+        continue
+
+    unless (jump.args[0] == ip and jump.args[1] == temp) or (jump.args[0] == temp and jump.args[1] == ip)
+        continue
+
+    if a.op != JUMP
+        continue
+
+    compare.args = compare.args[..-2]
+    compare.args.unshift compare.op.name
+    compare.compare = compare.op
+
+    compare.op = BRANCH
+
+    jump.handled = true
+    jump.op = NOP
+    jump.args = []
+
+    a.op = NOP
+    compare.args.push a.args[0]
+    a.args = []
+
+    if b.op == JUMP
+        b.op = NOP
+        compare.args.push b.args[0]
+        b.args = []
+    else
+        compare.args.push offset + 3
+
+writesToIp = writesToIp.filter ({op})-> not ((op.flags & CONTROL) > 0 or op == NOP)
+
+# Assume that a single jump depending on only [ip, 0] is safe
+if writesToIp.length == 1 and dependsOn(writesToIp[0], [ip, 0])
+    [input] = writesToIp
+
+    a = program[input.offset + 1]
+    b = program[input.offset + 2]
+
+    if a.op == JUMP
+        input.handled = true
+        input.op = BRANCH
+        input.args = ['eqri', 0, 0]
+        input.compare = ops[13]
+
+        a.op = NOP
+        input.args.push a.args[0]
+        a.args = []
+
+        if b.op == JUMP
+            b.op = NOP
+            input.args.push b.args[0]
+            b.args = []
+        else
+            input.args.push input.offset + 2
+        writesToIp = []
+
+if writesToIp.length > 0
+    console.log "Error: Access to instruction pointer could not be converted to jump/branch"
+    return
+
+# Build a control flow graph
+for instruction in program
+    switch instruction.op
+        when JUMP
+            offset = instruction.args[0]
+            if 0 <= offset < program.length
+                program[offset].isJumpTarget = true
+
+        when BRANCH
+            offset = instruction.args[3]
+            if 0 <= offset < program.length
+                program[offset].isJumpTarget = true
+
+            offset = instruction.args[4]
+            if 0 <= offset < program.length
+                program[offset].isJumpTarget = true
+
+block = {
+    id: 0
+    instructions: []
+    edges: []
+}
+blocks = [block]
+
+for instruction, offset in program
+    block.instructions.push instruction
+
+    if (offset + 1 < program.length) and program[offset + 1].isJumpTarget
+        block = {
+            id: blocks.length
+            instructions: []
+            edges: []
+        }
+        blocks.push block
+
+    if (instruction.op.flags & CONTROL) > 0
+        block = {
+            id: blocks.length
+            instructions: []
+            edges: []
+        }
+        blocks.push block
+
+# Remove NOPs
+blocks = blocks.filter (block)->
+    return not block.instructions.every ({op})-> op == NOP
+
+# Change the block ids
+blocks.forEach (block, index)->
+    block.id = index
+
+lastBlock = {
+    id: blocks.length
+    instructions: []
+    edges: []
+}
+
+# Link up blocks
+offsetToBlock = new Array program.length
+
+for block in blocks
+    offsetToBlock[block.instructions[0].offset] = block
+
+for block, index in blocks
+    last = block.instructions[block.instructions.length - 1]
+
+    switch last.op
+        when JUMP
+            block.edges.push offsetToBlock[last.args[0]] ? lastBlock
+
+        when BRANCH
+            block.edges.push offsetToBlock[last.args[3]] ? lastBlock
+            block.edges.push offsetToBlock[last.args[4]] ? lastBlock
+
+        else
+            block.edges.push blocks[index + 1] ? lastBlock
+
+# Find loops
+loops = []
+cfg = chain blocks,
+    Arr.flatMap (block)->
+        block.edges.map (other)-> [block, other]
+    DirectedGraph.create.fromEdges
+
+chain cfg,
+    DirectedGraph.depthFirstPath [blocks[0]], (current, path)->
+        if path.indexOf(current) != path.length - 1
+            loops.push [
+                path[path.length - 2].key.id
+                current.key.id
+                path.length
+            ]
+            return []
+        return current.outEdges
+
+srcToDst = new Array blocks.length + 1
+dstToSrc = new Array blocks.length + 1
+distance = new Array blocks.length + 1
+
+for [src, dst, length] in loops
+    if srcToDst[src]? and srcToDst[src] != dst
+        console.log "Error: Can't handle loops with multiple back-edges"
+        return
+
+    if dstToSrc[dst]? and dstToSrc[dst] != src
+        console.log "Error: Can't handle loops with multiple back-edges"
+        return
+
+    srcToDst[src] = dst
+    dstToSrc[dst] = src
+    distance[src] = Math.max distance[src] ? length, length
+
+for src, index in srcToDst
+    unless src?
+        continue
+
+    instructions = blocks[index].instructions
+    instructions[instructions.length - 1].op = LOOP
+
+# Identify code after a branch
+console.log cfg.getOrCreateNode(block[0]).inEdges
+
+# Print program
+for block in blocks
+    console.log "===[ #{block.id} ]===================> Links to #{block.edges.map(get('id')).join(', ')}"
+    printProgram block.instructions
+
+# Compile non-control instructions
+blocks = chain blocks,
+    Arr.forEach (block)->
+        block.instructions = chain block.instructions,
+            Arr.map (instruction)->
+                if (instruction.op.flags & CONTROL) == 0
+                    return compile instruction, ip
+                else
+                    return instruction
+
+console.log ""
+console.log "---------------------------------------------"
+console.log ""
+
+for block in blocks
+    console.log "===[ #{block.id} ]===================> Links to #{block.edges.map(get('id')).join(', ')}"
+    for instruction in block.instructions
+        if typeof(instruction) == 'string'
+            console.log "    #{instruction}"
+        else
+            {offset, op, args} = instruction
+            console.log "    ##{offset}: #{op.name} #{args.join(" ")}"
+
+console.log ""
+console.log "---------------------------------------------"
+console.log ""
+
+lastBlock.stop = true
+
+compileControl = (instruction)->
+    args = instruction.args[1..2]
+
+    for register in instruction.compare.inRegisters
+        if args[register] == ip
+            args[register] = instruction.offset
+        else
+            args[register] = registerNames[args[register]]
+
+    code = instruction.compare.compile args[0], args[1]
+
+    console.log code
+
+    return code
+
+# Start piecing together the output
+compileBlock = (block)->
+    if block.stop
+        return []
+
+    [ins..., l2] = block.instructions
+
+    switch l2.op
+        when JUMP
+            ins = ins.concat compileBlock block.edges[0]
+
+        when BRANCH
+            A = compileBlock(block.edges[1]).map (x)->"    #{x}"
+            B = compileBlock(block.edges[0]).map (x)->"    #{x}"
+
+            if A.length > 0 and B.length > 0
+                ins = [
+                    "if(#{compileControl l2}) {"
+                    A...
+                    "} else {"
+                    B...
+                    "}"
+                ]
+            else if A.length > 0
+                ins = [
+                    "if(#{compileControl l2}) {"
+                    A...
+                    "}"
+                ]
+            else
+                ins = [
+                    "if(!(#{compileControl l2})) {"
+                    B...
+                    "}"
+                ]
+
+
+        when LOOP
+            throw new Error "Tried to compile a block with a loop in it"
+
+        else
+            ins.push l2
+            ins = ins.concat compileBlock block.edges[0]
+
+    return ins
+
+distance = chain distance,
+    Arr.withIndexes
+    Arr.filter (x)->x[0]?
+    Arr.sortABy (x)->x[0]
+    Arr.forEach ([distance, index])->
+        block = blocks[index]
+
+        block.stop = true
+        [ins..., l2] = block.instructions
+
+        ins = ins.map (x)-> "    #{x}"
+        ins.unshift "do {"
+        ins = ins.concat compileBlock(block.edges[0]).map (x)->"    #{x}"
+        ins.push "} while(#{compileControl(l2)});"
+
+        block.stop = false
+        block.instructions = ins
+        block.edges.shift()
+
+# Go ahead and check for any loops
+
+output = compileBlock blocks[0]
+#console.log output.join '\n'
