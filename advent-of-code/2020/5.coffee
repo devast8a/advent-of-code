@@ -24,7 +24,6 @@ data = chain '5.txt',
         Str.replace /B|R/g, '1'
         Str.replace /F|L/g, '0'
         Num.parseBin
-        (x)-> (x >> 3) * 8 + (x & 0b111)
     ]
 
 part2 = chain [Arr.min(data) .. Arr.max(data)],
