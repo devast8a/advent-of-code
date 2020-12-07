@@ -51,3 +51,13 @@ countBags = (bag)->
         count += edge.state * countBags(edge.to)
     return count
 console.log countBags(gold) - 1
+
+
+# Alternative part 1
+chain bags,
+    DirectedGraph.depthFirstPath ['shiny gold'], Set.create(), (node, path, state)->
+        state.add node.key
+        return Array.from(node.inEdges).map (edge)-> {node: edge.from, state: state}
+    get 'state.size'
+    Op.sub 1
+    console.log
