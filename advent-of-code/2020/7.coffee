@@ -28,34 +28,26 @@ bags = chain '7.txt',
         ([first, contents])->
             chain contents,
                 Regex.execAll /(\d+) ([\w\s]+)/g
-                Arr.map ([_, count, second])-> {from: first, to: second, state: count}
+                Arr.map ([_, count, second])-> {from: first, to: second, data: count}
     ]
     DirectedGraph.create.fromEdges
 
-gold = bags.get 'shiny gold'
+gold = bags.getNode 'shiny gold'
 
 # Part 1
-colors = Set.create()
-getColors = (bag)->
-    colors.add bag.key
-    bag.inEdges.forEach (edge)->
-        getColors edge.from
-    return colors.size
-console.log getColors(gold) - 1
+chain bags,
+    DirectedGraph.reverse
+    DirectedGraph.depthFirst 'shiny gold'
+    get 'length'
+    Op.sub 1
+    console.log
 
 # Part 2
-countBags = (bag)->
-    count = 1
-    bag.outEdges.forEach (edge)->
-        count += edge.state * countBags(edge.to)
-    return count
-console.log countBags(gold) - 1
-
-# Alternative part 1
 chain bags,
-    DirectedGraph.depthFirstPath ['shiny gold'], Set.create(), (node, path, state)->
-        state.add node.key
-        return Array.from(node.inEdges).map (edge)-> {node: edge.from, state: state}
-    get 'state.size'
+    DirectedGraph.map compose [
+        Arr.sumBy (edge)-> edge.data * edge.result
+        Op.add 1
+    ]
+    Map.get 'shiny gold'
     Op.sub 1
     console.log
