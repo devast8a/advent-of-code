@@ -27,7 +27,6 @@ bags = chain '7.txt',
         Str.split ' contain '
         ([first, contents])->
             chain contents,
-                Str.split ','
                 Regex.execAll /(\d+) ([\w\s]+)/g
                 Arr.map ([_, count, second])-> {from: first, to: second, state: count}
     ]
@@ -51,7 +50,6 @@ countBags = (bag)->
         count += edge.state * countBags(edge.to)
     return count
 console.log countBags(gold) - 1
-
 
 # Alternative part 1
 chain bags,
