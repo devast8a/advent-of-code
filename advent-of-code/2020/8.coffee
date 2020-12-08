@@ -45,7 +45,10 @@ console.log run(code)[1]
 # Part 2
 for i in [0..code.length]
     copy = code.slice 0
-    copy[i] = 'nop'
+
+    switch copy[i][0]
+        when 'nop' then copy[i] = ['jmp', copy[i][1]]
+        when 'jmp' then copy[i] = ['nop', copy[i][1]]
     [terminated, acc] = run copy
 
     if terminated
