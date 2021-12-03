@@ -14,9 +14,19 @@ modexp = (b, e, n)->
 
     return r
 
+console.time "solution"
 v = 1
+
+n1 = n * 1
+n2 = n * 2
+n3 = n * 3
+n4 = n * 4
+n5 = n * 5
+n6 = n * 6
+
 for i in [1..n]
-    v = (v * 7) % n
+    v = v * 7
+    v %= n
     if v == a or v == b
         break
 
@@ -24,3 +34,4 @@ if v == a
     console.log "A", modexp b, i, n
 else
     console.log "B", modexp a, i, n
+console.timeEnd "solution"

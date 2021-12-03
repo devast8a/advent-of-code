@@ -1,53 +1,40 @@
-{_, chain, compose, curry, get} = require 'sweet-coffee'
+# Imports
+{_, chain, compose, curry, get, Arr, Func, Fs, Map, Num, Op, Regex, Str, Math, DirectedGraph, Deque, Set} = require 'sweet-coffee/all'
+################################################################################
 
-Arr = require 'sweet-coffee/arr'
-Fs = require 'sweet-coffee/fs'
-Map = require 'sweet-coffee/map'
-Num = require 'sweet-coffee/num'
-Op = require 'sweet-coffee/op'
-Regex = require 'sweet-coffee/regex'
-Str = require 'sweet-coffee/str'
-Math = require 'sweet-coffee/math'
-
-# Containers
-DirectedGraph = require 'sweet-coffee/container/directed-graph'
-Deque = require 'sweet-coffee/container/deque'
-Set = require 'sweet-coffee/container/set'
-
-# Read and format input
 bags = chain '7.txt',
-    Fs.readFile
-    Str.trim
-    
-    Str.split '\n'
+    Fs.readFileAsLines
+
     Arr.reject Str.contains 'no other bags'
 
     Arr.flatMap compose [
         Str.replace /\sbags?/g, ''
         Str.split ' contain '
-        ([first, contents])->
+
+        ([bag, contents])->
             chain contents,
                 Regex.execAll /(\d+) ([\w\s]+)/g
-                Arr.map ([_, count, second])-> {from: first, to: second, data: count}
+                Arr.map ([count, containedBag])-> {from: bag, to: containedBag, data: Number(count)}
     ]
     DirectedGraph.create.fromEdges
 
-gold = bags.getNode 'shiny gold'
-
 # Part 1
+#   How many bag colors can eventually contain at least one shiny gold bag?
 chain bags,
     DirectedGraph.reverse
     DirectedGraph.depthFirst 'shiny gold'
     get 'length'
-    Op.sub 1
+    Op.sub _, 1
     console.log
 
 # Part 2
+#   How many individual bags are required inside your single shiny gold bag?
 chain bags,
-    DirectedGraph.map compose [
-        Arr.sumBy (edge)-> edge.data * edge.result
-        Op.add 1
-    ]
+    DirectedGraph.reduce (edges, node, graph)->
+        chain edges,
+            Arr.sumBy (edge)-> edge.data * edge.result
+            Op.add 1
     Map.get 'shiny gold'
-    Op.sub 1
+    Op.sub _, 1
+
     console.log
