@@ -35,7 +35,7 @@ aoc
         Str.split '\n'
 
     boards = chain input[2..],
-        Arr.splitWhen Str.isEmpty
+        Arr.splitBy Str.isEmpty
         Arr.map compose [
             Arr.map compose [
                 Str.trim

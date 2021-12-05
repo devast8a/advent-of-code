@@ -1,5 +1,5 @@
 {_, chain, compose, curry, get, Arr, Fs, Map, Num, Op, Regex, Str, Math, DirectedGraph, Deque, Set} = require 'sweet-coffee/all'
-aoc = require './aoc'
+aoc = require '../aoc'
 
 aoc
 .setup
