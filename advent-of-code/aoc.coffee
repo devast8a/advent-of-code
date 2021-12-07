@@ -47,11 +47,18 @@ get = (date)->
 exported.put =
 put = curry (day, solution)->
     console.log day, solution
+
+IN_TEST = false
+exports.log =
+log = (text)->
+    if IN_TEST
+        console.log text
     
 exported.run =
 run = (options)->
     data = await get options.date
 
+    IN_TEST = true
     for test, index in options.tests
         result = options.solution test.string, test.parameters
 
@@ -64,6 +71,7 @@ run = (options)->
             console.log "✔️ Test #{index + 1}, Part 2"
         else
             console.log "❌ Test #{index + 1}, Part 2 | Expected: #{test.part2}  Got: #{result.part2}"
+    IN_TEST = false
 
     result = options.solution data, options.parameters
 
