@@ -11,9 +11,12 @@ exported = {}
 https_get = (url, options)->
     new Promise (resolve, reject)->
         req = http.get url, options, (res)->
+            output = ""
             if res.statusCode == 200
                 res.on 'data', (data)->
-                    resolve data
+                    output += data
+                res.on 'end', ->
+                    resolve output
             else
                 reject res.statusCode
 
@@ -49,10 +52,10 @@ put = curry (day, solution)->
     console.log day, solution
 
 IN_TEST = false
-exports.log =
-log = (text)->
+exported.log =
+log = (...text)->
     if IN_TEST
-        console.log text
+        console.log ...text
     
 exported.run =
 run = (options)->
@@ -62,15 +65,17 @@ run = (options)->
     for test, index in options.tests
         result = options.solution test.string, test.parameters
 
-        if test.part1 == result.part1
-            console.log "✔️ Test #{index + 1}, Part 1"
-        else
-            console.log "❌ Test #{index + 1}, Part 1 | Expected: #{test.part1}  Got: #{result.part1}"
+        if test.part1?
+            if test.part1 == result.part1
+                console.log "✔️ Test #{index + 1}, Part 1"
+            else
+                console.log "❌ Test #{index + 1}, Part 1 | Expected: #{test.part1}  Got: #{result.part1}"
 
-        if test.part2 == result.part2
-            console.log "✔️ Test #{index + 1}, Part 2"
-        else
-            console.log "❌ Test #{index + 1}, Part 2 | Expected: #{test.part2}  Got: #{result.part2}"
+        if test.part2?
+            if test.part2 == result.part2
+                console.log "✔️ Test #{index + 1}, Part 2"
+            else
+                console.log "❌ Test #{index + 1}, Part 2 | Expected: #{test.part2}  Got: #{result.part2}"
     IN_TEST = false
 
     result = options.solution data, options.parameters

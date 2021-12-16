@@ -16,7 +16,7 @@ aoc
         Arr.map Num.parseDec
 
     solve = (diff) ->
-        chain [0...Arr.max input],
+        chain [Arr.min(input)...Arr.max(input)],
             Arr.map (target) -> Arr.sumBy diff(target), input
             Arr.min
 
