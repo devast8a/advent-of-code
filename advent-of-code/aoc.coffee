@@ -63,19 +63,30 @@ run = (options)->
 
     IN_TEST = true
     for test, index in options.tests
-        result = options.solution test.string, test.parameters
+        if test.file?
+            result = options.solution fs.readFileSync(test.file, 'utf8'), test.parameters
+        else
+            result = options.solution test.string, test.parameters
 
         if test.part1?
             if test.part1 == result.part1
                 console.log "✔️ Test #{index + 1}, Part 1"
             else
                 console.log "❌ Test #{index + 1}, Part 1 | Expected: #{test.part1}  Got: #{result.part1}"
+        else
+            if result.part1?
+                console.log "🔵 Test #{index + 1}, Part 1 | Got: #{result.part1}"
+
 
         if test.part2?
             if test.part2 == result.part2
                 console.log "✔️ Test #{index + 1}, Part 2"
             else
                 console.log "❌ Test #{index + 1}, Part 2 | Expected: #{test.part2}  Got: #{result.part2}"
+        else
+            if result.part2?
+                console.log "🔵 Test #{index + 1}, Part 2 | Got: #{result.part2}"
+
     IN_TEST = false
 
     result = options.solution data, options.parameters
