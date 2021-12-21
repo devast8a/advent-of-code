@@ -64,9 +64,13 @@ run = (options)->
     IN_TEST = true
     for test, index in options.tests
         if test.file?
-            result = options.solution fs.readFileSync(test.file, 'utf8'), test.parameters
+            input = fs.readFileSync(test.file, 'utf8')
         else
-            result = options.solution test.string, test.parameters
+            input = test.string
+
+        START = Date.now()
+        result = options.solution input, test.parameters
+        END = Date.now()
 
         if test.part1?
             if test.part1 == result.part1
@@ -75,7 +79,7 @@ run = (options)->
                 console.log "❌ Test #{index + 1}, Part 1 | Expected: #{test.part1}  Got: #{result.part1}"
         else
             if result.part1?
-                console.log "🔵 Test #{index + 1}, Part 1 | Got: #{result.part1}"
+                console.log "❔ Test #{index + 1}, Part 1 | Got: #{result.part1}"
 
 
         if test.part2?
@@ -85,23 +89,42 @@ run = (options)->
                 console.log "❌ Test #{index + 1}, Part 2 | Expected: #{test.part2}  Got: #{result.part2}"
         else
             if result.part2?
-                console.log "🔵 Test #{index + 1}, Part 2 | Got: #{result.part2}"
+                console.log "❔ Test #{index + 1}, Part 2 | Got: #{result.part2}"
+        
+        time = END - START
+        if time < 1000
+            time = "#{time}ms"
+        else
+            time = "#{time / 1000}s"
+
+        console.log "⏱️ Test #{index + 1}: #{time}"
+        console.log ""
 
     IN_TEST = false
 
+    START = Date.now()
     result = options.solution data, options.parameters
+    END = Date.now()
 
     if result.part1? and not result.part2?
-        console.log "Part 1: #{result.part1} - copied to clipboard"
-        console.log "Part 2: <no value>"
+        console.log "❔ Solution: Part 1: #{result.part1} - copied to clipboard"
+        console.log "❔ Solution: Part 2: <no value>"
         child_process.spawn('clip.exe').stdin.end(result.part1.toString())
     else if result.part2?
-        console.log "Part 1: #{result.part1 ? "<no value>"}"
-        console.log "Part 2: #{result.part2} - copied to clipboard"
+        console.log "❔ Solution: Part 1: #{result.part1 ? "<no value>"}"
+        console.log "❔ Solution: Part 2: #{result.part2} - copied to clipboard"
         child_process.spawn('clip.exe').stdin.end(result.part2.toString())
     else
-        console.log "Part 1: <no value>"
-        console.log "Part 2: <no value>"
+        console.log "❔ Solution: Part 1: <no value>"
+        console.log "❔ Solution: Part 2: <no value>"
+
+    time = END - START
+    if time < 1000
+        time = "#{time}ms"
+    else
+        time = "#{time / 1000}s"
+
+    console.log "⏱️ Solution: #{time}"
 
 exported.setup =
 setup = (options)->

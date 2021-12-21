@@ -44,12 +44,38 @@ aoc
             else
                 value = (value << 1) | input[y][x]
         return value
+
+    fastSample = (input, Y, X)->
+        value = 0
+        value = (value << 1) | input[Y - 1][X - 1]
+        value = (value << 1) | input[Y - 1][X    ]
+        value = (value << 1) | input[Y - 1][X + 1]
+        value = (value << 1) | input[Y    ][X - 1]
+        value = (value << 1) | input[Y    ][X    ]
+        value = (value << 1) | input[Y    ][X + 1]
+        value = (value << 1) | input[Y + 1][X - 1]
+        value = (value << 1) | input[Y + 1][X    ]
+        value = (value << 1) | input[Y + 1][X + 1]
     
     outside = 0
     step = (input)->
-        output = new Array(input.length + 2).fill(0).map( -> new Array(input.length + 2).fill(0))
-        for row, y in output then for _, x in row
+        length = input.length + 2
+        output = new Array(length).fill(0).map( -> new Array(length))
+        for y in [2...length-2] then for x in [2...length-2]
+            output[y][x] = rules[fastSample input, y - 1, x - 1]
+
+        for y in [0...2] then for x in [0...length]
             output[y][x] = rules[sample input, y - 1, x - 1]
+
+        for y in [length-2...length] then for x in [0...length]
+            output[y][x] = rules[sample input, y - 1, x - 1]
+
+        for x in [0...2] then for y in [0...length]
+            output[y][x] = rules[sample input, y - 1, x - 1]
+
+        for x in [length-2...length] then for y in [0...length]
+            output[y][x] = rules[sample input, y - 1, x - 1]
+
         outside = rules[outside * 0x1FF]
         return output
 
